@@ -97,7 +97,7 @@ const topics=[
 ["What makes a conversation interesting?","Think about questions, listening, stories, and ideas."],
 ["If you could give your younger self one piece of advice, what would it be?","Explain why you chose that advice."]
 ];
-let current=0, recognition=null, timerId=null, seconds=90, lastAnalysis=null;
+let current=0, recognition=null, timerId=null, seconds=90, lastAnalysis=null, speechSessionActive=false, speechFinalText='';
 
 function newTopic(){current=Math.floor(Math.random()*topics.length);renderTopic()}
 function renderTopic(){document.getElementById("topic").textContent=topics[current][0];document.getElementById("prompt").textContent=topics[current][1]}
@@ -112,75 +112,106 @@ function startSpeech(){
   const SR=window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if(!SR){
-    status.textContent="Speech recognition is not available in this browser. Tap the text box and use the iPhone microphone on the keyboard.";
+    status.textContent="Speech recognition is not available here. Use the iPhone keyboard microphone.";
     box.focus();
     return;
   }
 
-  try{
-    recognition=new SR();
-    recognition.lang="en-SG";
-    recognition.continuous=false;
-    recognition.interimResults=true;
-    recognition.maxAlternatives=1;
+  speechSessionActive=true;
+  speechFinalText=box.value.trim();
+  if(speechFinalText) speechFinalText+=" ";
 
-    let finalText=box.value.trim();
-    if(finalText) finalText+=" ";
+  startBtn.disabled=true;
+  startBtn.textContent="🎙 Listening…";
+  status.textContent="🎙 Listening… speak naturally. You can pause and continue.";
 
-    recognition.onstart=()=>{
-      status.textContent="🎙 Listening… speak now.";
-      startBtn.textContent="🎙 Listening…";
-      startBtn.disabled=true;
-    };
+  function listenAgain(){
+    if(!speechSessionActive || seconds<=0) return;
 
-    recognition.onresult=(event)=>{
-      let interim="";
-      for(let i=event.resultIndex;i<event.results.length;i++){
-        const transcript=event.results[i][0].transcript;
-        if(event.results[i].isFinal) finalText+=transcript+" ";
-        else interim+=transcript;
-      }
-      box.value=(finalText+interim).trim();
-    };
+    try{
+      recognition=new SR();
+      recognition.lang="en-SG";
+      recognition.continuous=true;
+      recognition.interimResults=true;
+      recognition.maxAlternatives=1;
 
-    recognition.onerror=(event)=>{
-      clearInterval(timerId);
-      startBtn.disabled=false;
-      startBtn.textContent="🎙 Start speaking";
-      const messages={
-        "not-allowed":"Microphone permission was blocked. Check iPhone Settings → Safari → Microphone, then try again.",
-        "service-not-allowed":"Safari's speech recognition service is unavailable right now.",
-        "audio-capture":"Safari could not access the microphone.",
-        "network":"Speech recognition needs a network connection.",
-        "no-speech":"No speech was detected. Tap Start and speak clearly.",
-        "language-not-supported":"English (Singapore) is not supported here. Try again with English (US)."
+      recognition.onstart=()=>{
+        status.textContent="🎙 Listening… speak naturally. You can pause and continue.";
       };
-      status.textContent=messages[event.error] || ("Speech recognition stopped: "+event.error);
-    };
 
-    recognition.onend=()=>{
+      recognition.onresult=(event)=>{
+        let interim="";
+        for(let i=event.resultIndex;i<event.results.length;i++){
+          const transcript=event.results[i][0].transcript;
+          if(event.results[i].isFinal){
+            speechFinalText+=transcript+" ";
+          }else{
+            interim+=transcript;
+          }
+        }
+        box.value=(speechFinalText+interim).trim();
+        box.scrollTop=box.scrollHeight;
+      };
+
+      recognition.onerror=(event)=>{
+        if(!speechSessionActive) return;
+
+        if(event.error==="not-allowed"){
+          speechSessionActive=false;
+          clearInterval(timerId);
+          startBtn.disabled=false;
+          startBtn.textContent="🎙 Start speaking";
+          status.textContent="Microphone permission was blocked. Check iPhone Settings → Safari → Microphone.";
+          return;
+        }
+
+        // Safari can report no-speech, audio-capture or network errors
+        // after a short interruption. Give it another chance.
+        if(seconds>0){
+          status.textContent="Listening will resume…";
+        }
+      };
+
+      recognition.onend=()=>{
+        if(speechSessionActive && seconds>0){
+          setTimeout(listenAgain,250);
+        }else{
+          clearInterval(timerId);
+          startBtn.disabled=false;
+          startBtn.textContent="🎙 Start speaking";
+          status.textContent=box.value.trim()
+            ? "Speech captured. Tap Analyse when ready."
+            : "No speech captured. Tap Start and try again.";
+        }
+      };
+
+      recognition.start();
+
+    }catch(err){
+      if(speechSessionActive && seconds>0){
+        setTimeout(listenAgain,500);
+      }
+    }
+  }
+
+  listenAgain();
+
+  timerId=setInterval(()=>{
+    seconds--;
+    document.getElementById("timer").textContent=fmt(Math.max(seconds,0));
+
+    if(seconds<=0){
+      speechSessionActive=false;
+      if(recognition){try{recognition.stop()}catch(e){}}
       clearInterval(timerId);
       startBtn.disabled=false;
       startBtn.textContent="🎙 Start speaking";
-      status.textContent=box.value.trim()
-        ? "Speech captured. You can continue or tap Analyse."
-        : "No speech captured. Tap Start and try again.";
-    };
-
-    recognition.start();
-
-    timerId=setInterval(()=>{
-      seconds--;
-      document.getElementById("timer").textContent=fmt(Math.max(seconds,0));
-      if(seconds<=0) stopSpeech();
-    },1000);
-  }catch(err){
-    startBtn.disabled=false;
-    startBtn.textContent="🎙 Start speaking";
-    status.textContent="Safari could not start speech recognition. Please try again.";
-  }
+      status.textContent="90 seconds completed. Tap Analyse when ready.";
+    }
+  },1000);
 }
 function stopSpeech(){
+  speechSessionActive=false;
   clearInterval(timerId);
   if(recognition){try{recognition.stop()}catch(e){}}
   const btn=document.getElementById("startBtn");
