@@ -80,12 +80,20 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 <div class="score"><b id="overall">—</b><span>Overall</span></div>
 </div>
 <div id="good"></div><div id="improve"></div>
+<div class="label" style="margin-top:18px">What you were trying to say</div>
+<div id="mainIdea" class="improved"></div>
+<div class="label" style="margin-top:18px">Why it was difficult to follow</div>
+<div id="clarityProblem" class="improved"></div>
+<div class="label" style="margin-top:18px">How to organise it</div>
+<div id="coachPlan" class="improved"></div>
 <div class="label" style="margin-top:18px">Your speaking pattern</div>
 <div id="pattern" class="improved"></div>
 <div class="label" style="margin-top:18px">Say it more clearly</div>
 <div id="better" class="improved"></div>
 <div class="label" style="margin-top:18px">A stronger structure</div>
 <div id="structure" class="improved"></div>
+<div class="label" style="margin-top:18px">Your next practice</div>
+<div id="practice" class="improved"></div>
 <div class="row" style="margin-top:12px"><button class="btn secondary" onclick="useImproved()">Use improved version</button><button class="btn ghost" onclick="saveSession()">Save session</button></div>
 </div>
 </section>
@@ -260,106 +268,129 @@ function sentences(t){ return (t.match(/[.!?]+/g)||[]).length; }
 function coach(){
  try{
   const t=document.getElementById("speech").value.trim();
-  if(!t){ alert("Please speak or type an answer first."); return; }
+  if(!t){alert("Please speak or type an answer first.");return;}
 
-  const w=words(t), low=t.toLowerCase();
-  const fillerList=["um","uh","you know","like","actually","basically","sort of","kind of","i mean"];
-  let fillers=0;
-  for(let i=0;i<fillerList.length;i++){
-    const f=fillerList[i].replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&").replace(/ /g,"\\s+");
-    const m=low.match(new RegExp("\\b"+f+"\\b","g"));
-    if(m) fillers+=m.length;
+  const w=words(t), s=sentences(t), low=t.toLowerCase();
+  const fillers=["um","uh","you know","like","actually","basically","sort of","kind of","i mean","you see"];
+  let fillerCount=0;
+  for(let i=0;i<fillers.length;i++){
+   const f=fillers[i].replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&").replace(/ /g,"\\s+");
+   const m=low.match(new RegExp("\\b"+f+"\\b","g"));
+   if(m) fillerCount+=m.length;
   }
 
-  // Speech-to-text often removes punctuation, so assess structure from
-  // connectors and repeated phrases as well as sentence punctuation.
-  const connectors=["because","but","however","for example","for instance","first","second","finally","although","therefore","so"];
-  let connectorCount=0;
-  for(let i=0;i<connectors.length;i++) if(low.indexOf(connectors[i])!==-1) connectorCount++;
-
-  const sentenceCount=(t.match(/[.!?]+/g)||[]).length;
-  const andThen=(low.match(/\band then\b/g)||[]).length;
+  const wordsAndThen=(low.match(/\b(and then|then)\b/g)||[]).length;
   const andCount=(low.match(/\band\b/g)||[]).length;
-  const soCount=(low.match(/\bso\b/g)||[]).length;
-  const repeatedWords=[];
-  const tokens=low.replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);
-  const stop={the:1,a:1,an:1,and:1,to:1,of:1,i:1,it:1,is:1,that:1,this:1,you:1,be:1,for:1,in:1,on:1,with:1,was:1,have:1,had:1,will:1,do:1,can:1};
-  const counts={};
-  for(let i=0;i<tokens.length;i++) if(tokens[i].length>3 && !stop[tokens[i]]) counts[tokens[i]]=(counts[tokens[i]]||0)+1;
-  for(const k in counts) if(counts[k]>=3) repeatedWords.push(k);
+  const longWords=(t.match(/\b[a-zA-Z]{10,}\b/g)||[]).length;
+  const avg=s?s===0?w:Math.round(w/s):w;
+  const transitions=["because","however","therefore","for example","for instance","first","second","finally","although","but","so","the main reason","in my view"];
+  let transitionsUsed=0;
+  for(let i=0;i<transitions.length;i++) if(low.indexOf(transitions[i])!==-1) transitionsUsed++;
 
-  const unique=new Set(tokens).size;
-  const variety=w ? unique/w : 0;
+  // This rubric deliberately rewards clarity and structure, not length or "big words".
+  let clarity=72;
+  let flow=68;
+  let language=70;
 
-  // More realistic coaching scores. These are deliberately conservative:
-  // word count alone never earns a high score.
-  let clarity=78;
-  if(w<35) clarity-=10;
-  if(w>150) clarity-=8;
-  if(fillers>=2) clarity-=6;
-  if(fillers>=4) clarity-=8;
-  if(andThen>=2) clarity-=10;
-  if(andCount>Math.max(5,w/12)) clarity-=8;
-  if(repeatedWords.length) clarity-=6;
-  if(sentenceCount===0 && w>45) clarity-=8;
-  clarity=Math.max(35,Math.min(90,clarity));
+  if(w<35){clarity-=10;flow-=7;}
+  if(w>140){clarity-=8;flow-=8;}
+  if(fillerCount>=2){clarity-=7;flow-=6;}
+  if(fillerCount>=5){clarity-=8;flow-=8;}
+  if(wordsAndThen>=2){flow-=10;}
+  if(andCount>=8){flow-=7;}
+  if(s===1 && w>45){clarity-=10;flow-=8;}
+  if(s>=3){flow+=5;}
+  if(transitionsUsed>=1){clarity+=5;}
+  if(transitionsUsed>=2){flow+=5;}
+  if(longWords>4 && transitionsUsed===0){language-=5;}
 
-  let structure=72;
-  if(connectorCount===0) structure-=12;
-  if(connectorCount>=2) structure+=5;
-  if(w<50) structure-=5;
-  if(andThen>=2) structure-=12;
-  if(sentenceCount<2 && w>60) structure-=12;
-  if(low.indexOf("for example")!==-1 || low.indexOf("for instance")!==-1) structure+=7;
-  structure=Math.max(30,Math.min(92,structure));
+  // Detect whether the answer appears to have an example.
+  const hasExample=/\b(for example|for instance|one example|in my experience|when i|i remember|once i|recently)\b/i.test(t);
+  if(hasExample){clarity+=5;flow+=3;}
 
-  let language=72;
-  if(variety<0.42) language-=10;
-  if(fillers>=2) language-=4;
-  if(repeatedWords.length) language-=7;
-  if(andCount>Math.max(5,w/12)) language-=5;
-  language=Math.max(35,Math.min(90,language));
+  // Very repetitive answers should be penalised.
+  const tokens=low.replace(/[^a-z0-9\s]/g," ").split(/\s+/).filter(Boolean);
+  const freq={};
+  for(let i=0;i<tokens.length;i++) freq[tokens[i]]=(freq[tokens[i]]||0)+1;
+  let repeated=0;
+  for(const k in freq) if(freq[k]>=5 && k.length>2) repeated+=freq[k]-3;
+  if(repeated>=5){clarity-=8;language-=6;}
 
-  const overall=Math.round((clarity+structure+language)/3);
+  clarity=Math.max(35,Math.min(95,clarity));
+  flow=Math.max(35,Math.min(95,flow));
+  language=Math.max(35,Math.min(95,language));
+  const overall=Math.round((clarity+flow+language)/3);
 
   document.getElementById("clarity").textContent=clarity;
-  document.getElementById("flow").textContent=structure;
+  document.getElementById("flow").textContent=flow;
   document.getElementById("vocab").textContent=language;
   document.getElementById("overall").textContent=overall;
 
-  let biggest="";
-  if(andThen>=2 || andCount>Math.max(5,w/12)) biggest="You rely too heavily on “and / and then”, which makes the answer sound like one long stream of thought.";
-  else if(connectorCount===0) biggest="Your ideas need clearer links. Use: main point → reason → example.";
-  else if(repeatedWords.length) biggest="Some ideas or words are repeated. Say the point once, then move forward.";
-  else if(fillers) biggest="Reduce filler words and replace them with a short pause.";
-  else biggest="Make your main point clear in the first sentence.";
+  let good;
+  if(hasExample && transitionsUsed) good="You gave your idea some support and used a clearer link between ideas.";
+  else if(w>=45) good="You had enough material to develop a meaningful answer.";
+  else good="You had a clear starting point; the next step is to develop it.";
 
-  let good="You kept talking and developed an idea rather than stopping after one sentence. That gives us useful material to improve.";
-  let imp=[biggest];
-  if(!low.includes("for example") && !low.includes("for instance")) imp.push("Add one concrete example. It makes your answer easier to follow and remember.");
-  if(w>80) imp.push("Aim to say the same amount of meaning in fewer, cleaner sentences.");
+  let imp=[];
+  if(s===1 && w>45) imp.push("Your answer runs as one long stream. Pause and separate your main point, reason and example.");
+  if(wordsAndThen>=2) imp.push("You rely on “then/and then” to move the story forward. Replace it with clearer transitions.");
+  if(fillerCount) imp.push("Reduce filler words so your main idea stands out.");
+  if(andCount>=8) imp.push("You use “and” very often. Break connected ideas into shorter, stronger sentences.");
+  if(!hasExample) imp.push("Add one specific example. It makes an abstract idea easier to understand.");
+  if(!imp.length) imp.push("Your structure is improving. Focus next on concise sentences and deliberate pauses.");
 
   document.getElementById("good").innerHTML='<div class="good"><b>What you did well</b><br>'+good+'</div>';
-  document.getElementById("improve").innerHTML='<div class="improve"><b>Biggest improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
+  document.getElementById("improve").innerHTML='<div class="improve"><b>Next improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
+
+  // Keep this deliberately modest: it is an interpretation of the transcript, not mind-reading.
+  let mainIdea="";
+  if(low.indexOf("success")!==-1) mainIdea="Your answer appears to be saying that success comes from making progress, following through on your intentions, and learning from the process.";
+  else if(low.indexOf("learn")!==-1) mainIdea="Your answer appears to focus on learning effectively and having a practical system that makes learning easier.";
+  else if(low.indexOf("good day")!==-1) mainIdea="Your answer appears to be describing what you believe makes a day productive and satisfying.";
+  else mainIdea="Your answer contains a central idea, but it is mixed together with supporting thoughts. The next step is to state that central idea in one sentence.";
+
+  let problem=[];
+  if(s===1 && w>45) problem.push("Most of the answer is one continuous stream, so the listener has to work out where one idea ends and another begins.");
+  if(wordsAndThen>=2) problem.push("“Then” or “and then” is doing too much of the connecting.");
+  if(andCount>=8) problem.push("Frequent “and” connections make several separate thoughts sound like one long thought.");
+  if(fillerCount) problem.push("Filler words interrupt the main message.");
+  if(!problem.length) problem.push("The main opportunity is to make your point earlier and then support it with one reason and one example.");
+
+  document.getElementById("mainIdea").textContent=mainIdea;
+  document.getElementById("clarityProblem").textContent=problem.slice(0,2).join(" ");
+
+  const plan="1. Main point — say your answer in one sentence.  2. Reason — explain why you believe it.  3. Example — give one concrete example.  4. Finish — restate the point briefly.";
+  document.getElementById("coachPlan").textContent=plan;
 
   const better=makeNatural(t);
-  const structureText=buildStructure(t);
-  document.getElementById("pattern").textContent=
-    (andThen>=2 ? "run-on / stream-of-thought" : "developing ideas")+
-    " · "+(fillers ? "filler words present" : "few filler words")+
-    " · "+(connectorCount ? "some linking" : "needs stronger linking")+
-    " · "+(repeatedWords.length ? "some repetition" : "limited repetition");
+  const structured=buildStructure(t);
   document.getElementById("better").textContent=better;
-  document.getElementById("structure").textContent=structureText;
-  document.getElementById("results").classList.remove("hidden");
-  document.getElementById("status").textContent="Analysis complete — scroll down to see your coaching.";
+  document.getElementById("structure").textContent=structured;
 
+  let practice;
+  if(s===1 || wordsAndThen>=2 || andCount>=8){
+   practice="Try again in 45 seconds. Use exactly three sentences: “My main point is… The reason is… For example…” Do not worry about sophisticated vocabulary.";
+  }else if(!hasExample){
+   practice="Try again in 45 seconds and add one specific example. Keep the answer to three or four sentences.";
+  }else{
+   practice="Try again in 45 seconds. Keep your same ideas, but make each sentence shorter and add a deliberate pause between your main point, reason and example.";
+  }
+  document.getElementById("practice").textContent=practice;
+
+  document.getElementById("pattern").textContent=
+   (w<45?"short answer":(w>140?"long answer":"good speaking length"))
+   +" · "+(fillerCount?"filler words present":"few filler words")
+   +" · "+(transitionsUsed?"uses transitions":"add transitions")
+   +" · "+((s===1&&w>45)?"run-on structure":(avg>25?"long sentences":"comfortable sentence length"));
+
+  document.getElementById("results").classList.remove("hidden");
   lastAnalysis={date:new Date().toLocaleDateString(),topic:topics[current][0],score:overall,text:t,better:better};
+  document.getElementById("status").textContent="Analysis complete — now practise the specific improvement above.";
  }catch(err){
   console.error(err);
   document.getElementById("results").classList.remove("hidden");
-  document.getElementById("good").innerHTML='<div class="improve"><b>Coach error</b><br>The answer was captured, but the analysis encountered a browser error. Please try again.</div>';
-  document.getElementById("status").textContent="Analysis error — please tap Analyse again.";
+  document.getElementById("good").innerHTML='<div class="improve"><b>Coach error</b><br>The answer was captured, but the analysis encountered a browser error.</div>';
+  document.getElementById("status").textContent="Analysis error — please try again.";
  }
 }
 
