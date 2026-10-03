@@ -22,6 +22,18 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 .good{background:#eef9f4;border-left:4px solid #16a34a;padding:12px;border-radius:10px;margin-top:10px}.improve{background:#fff8e8;border-left:4px solid #d97706;padding:12px;border-radius:10px;margin-top:10px}
 .improved{font-size:16px;line-height:1.55;background:#f7fbfa;border:1px solid var(--line);padding:14px;border-radius:14px;margin-top:10px}
 .small{font-size:12px;color:var(--muted);line-height:1.45}.hidden{display:none}.historyItem{padding:12px 0;border-bottom:1px solid var(--line)}.historyItem:last-child{border-bottom:0}
+
+.records-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.recordCard{background:#f7fbfa;border:1px solid var(--line);border-radius:15px;padding:13px;margin:9px 0}
+.recordTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.recordTitle{font-weight:800;line-height:1.3}.recordMeta{font-size:12px;color:var(--muted);margin-top:4px}
+.recordActions{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap}
+.recordActions .btn{padding:9px 11px;font-size:13px}
+.modal{position:fixed;inset:0;background:#102f2d99;display:none;align-items:flex-end;justify-content:center;z-index:20;padding:12px}
+.modal.show{display:flex}.modalBox{background:#fff;width:100%;max-width:620px;border-radius:22px;padding:18px;max-height:88vh;overflow:auto}
+.modalBox h2{margin:0 0 14px}.modalBox label{display:block;font-size:12px;font-weight:800;color:var(--teal);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.modalBox input,.modalBox textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:12px;font:16px/1.45 inherit}
+.modalBox textarea{min-height:130px}.emptyRecords{text-align:center;color:var(--muted);padding:12px 0}
 </style>
 </head>
 <body>
@@ -64,7 +76,7 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 <div class="scoregrid">
 <div class="score"><b id="clarity">—</b><span>Clarity</span></div>
 <div class="score"><b id="flow">—</b><span>Flow</span></div>
-<div class="score"><b id="vocab">—</b><span>Vocabulary</span></div>
+<div class="score"><b id="vocab">—</b><span>Language</span></div>
 <div class="score"><b id="overall">—</b><span>Overall</span></div>
 </div>
 <div id="good"></div><div id="improve"></div>
@@ -79,9 +91,30 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 </section>
 
 <section class="card">
-<div class="label">Your progress</div>
+<div class="label">Your progress & records</div>
 <div id="progress" class="prompt">No sessions saved yet.</div>
+<div class="records-actions">
+<button class="btn secondary" type="button" onclick="viewRecords()">📚 View records</button>
+<button class="btn ghost" type="button" onclick="clearRecords()">Clear records</button>
+</div>
+<div id="recordsList" class="hidden" style="margin-top:14px"></div>
 </section>
+</div>
+
+<div id="editModal" class="modal" onclick="closeEditOnBackdrop(event)">
+<div class="modalBox">
+<h2>Edit session</h2>
+<label>Topic</label>
+<input id="editTopic" type="text">
+<label>Your answer</label>
+<textarea id="editText"></textarea>
+<label>Improved version</label>
+<textarea id="editBetter"></textarea>
+<div class="row" style="margin-top:14px">
+<button class="btn primary" type="button" onclick="saveEditedRecord()">Save changes</button>
+<button class="btn ghost" type="button" onclick="closeEdit()">Cancel</button>
+</div>
+</div>
 </div>
 
 <script>
@@ -227,84 +260,101 @@ function sentences(t){ return (t.match(/[.!?]+/g)||[]).length; }
 function coach(){
  try{
   const t=document.getElementById("speech").value.trim();
-  if(!t){
-    alert("Please speak or type an answer first.");
-    return;
-  }
+  if(!t){ alert("Please speak or type an answer first."); return; }
 
-  const w=words(t);
-  const s=sentences(t);
-  const low=t.toLowerCase();
-
-  const fillers=["um","uh","you know","like","actually","basically","sort of","kind of","i mean","you see"];
-  let fillerCount=0;
-  for(let i=0;i<fillers.length;i++){
-    const f=fillers[i].replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&").replace(/ /g,"\\s+");
+  const w=words(t), low=t.toLowerCase();
+  const fillerList=["um","uh","you know","like","actually","basically","sort of","kind of","i mean"];
+  let fillers=0;
+  for(let i=0;i<fillerList.length;i++){
+    const f=fillerList[i].replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&").replace(/ /g,"\\s+");
     const m=low.match(new RegExp("\\b"+f+"\\b","g"));
-    if(m) fillerCount+=m.length;
+    if(m) fillers+=m.length;
   }
 
-  const longWords=(t.match(/\b[a-zA-Z]{10,}\b/g)||[]).length;
-  const avg=s ? Math.round(w/s) : w;
-  const transitionWords=["because","however","therefore","for example","for instance","first","second","finally","although","but","so"];
-  let transitions=0;
-  for(let i=0;i<transitionWords.length;i++){
-    if(low.indexOf(transitionWords[i])!==-1) transitions++;
-  }
+  // Speech-to-text often removes punctuation, so assess structure from
+  // connectors and repeated phrases as well as sentence punctuation.
+  const connectors=["because","but","however","for example","for instance","first","second","finally","although","therefore","so"];
+  let connectorCount=0;
+  for(let i=0;i<connectors.length;i++) if(low.indexOf(connectors[i])!==-1) connectorCount++;
 
-  let clarity=Math.max(45,Math.min(98,74-(fillerCount*4)+(s>=2?8:0)+(w>=45?5:0)+(transitions?5:0)));
-  let flow=Math.max(45,Math.min(98,68+(s>=3?10:0)+(avg>=8&&avg<=24?9:0)+(transitions>=2?7:0)-(fillerCount*3)));
-  let vocab=Math.max(45,Math.min(98,66+(longWords>=2?7:0)+(w>=70?8:0)));
-  let overall=Math.round((clarity+flow+vocab)/3);
+  const sentenceCount=(t.match(/[.!?]+/g)||[]).length;
+  const andThen=(low.match(/\band then\b/g)||[]).length;
+  const andCount=(low.match(/\band\b/g)||[]).length;
+  const soCount=(low.match(/\bso\b/g)||[]).length;
+  const repeatedWords=[];
+  const tokens=low.replace(/[^a-z0-9' ]/g,' ').split(/\s+/).filter(Boolean);
+  const stop={the:1,a:1,an:1,and:1,to:1,of:1,i:1,it:1,is:1,that:1,this:1,you:1,be:1,for:1,in:1,on:1,with:1,was:1,have:1,had:1,will:1,do:1,can:1};
+  const counts={};
+  for(let i=0;i<tokens.length;i++) if(tokens[i].length>3 && !stop[tokens[i]]) counts[tokens[i]]=(counts[tokens[i]]||0)+1;
+  for(const k in counts) if(counts[k]>=3) repeatedWords.push(k);
+
+  const unique=new Set(tokens).size;
+  const variety=w ? unique/w : 0;
+
+  // More realistic coaching scores. These are deliberately conservative:
+  // word count alone never earns a high score.
+  let clarity=78;
+  if(w<35) clarity-=10;
+  if(w>150) clarity-=8;
+  if(fillers>=2) clarity-=6;
+  if(fillers>=4) clarity-=8;
+  if(andThen>=2) clarity-=10;
+  if(andCount>Math.max(5,w/12)) clarity-=8;
+  if(repeatedWords.length) clarity-=6;
+  if(sentenceCount===0 && w>45) clarity-=8;
+  clarity=Math.max(35,Math.min(90,clarity));
+
+  let structure=72;
+  if(connectorCount===0) structure-=12;
+  if(connectorCount>=2) structure+=5;
+  if(w<50) structure-=5;
+  if(andThen>=2) structure-=12;
+  if(sentenceCount<2 && w>60) structure-=12;
+  if(low.indexOf("for example")!==-1 || low.indexOf("for instance")!==-1) structure+=7;
+  structure=Math.max(30,Math.min(92,structure));
+
+  let language=72;
+  if(variety<0.42) language-=10;
+  if(fillers>=2) language-=4;
+  if(repeatedWords.length) language-=7;
+  if(andCount>Math.max(5,w/12)) language-=5;
+  language=Math.max(35,Math.min(90,language));
+
+  const overall=Math.round((clarity+structure+language)/3);
 
   document.getElementById("clarity").textContent=clarity;
-  document.getElementById("flow").textContent=flow;
-  document.getElementById("vocab").textContent=vocab;
+  document.getElementById("flow").textContent=structure;
+  document.getElementById("vocab").textContent=language;
   document.getElementById("overall").textContent=overall;
 
-  let good;
-  if(s>=3 && transitions>=1){
-    good="You are giving your answer some structure, and your ideas are easier to follow.";
-  }else if(w>=45){
-    good="You have enough material to develop a clear answer.";
-  }else{
-    good="You have a useful starting point. Developing the idea will make you sound more confident.";
-  }
+  let biggest="";
+  if(andThen>=2 || andCount>Math.max(5,w/12)) biggest="You rely too heavily on “and / and then”, which makes the answer sound like one long stream of thought.";
+  else if(connectorCount===0) biggest="Your ideas need clearer links. Use: main point → reason → example.";
+  else if(repeatedWords.length) biggest="Some ideas or words are repeated. Say the point once, then move forward.";
+  else if(fillers) biggest="Reduce filler words and replace them with a short pause.";
+  else biggest="Make your main point clear in the first sentence.";
 
-  let imp=[];
-  if(fillerCount) imp.push("Cut filler words. You used about "+fillerCount+" filler word(s).");
-  if(s<3) imp.push("Give your answer a beginning, middle and end: main point → reason → example.");
-  if(avg>25) imp.push("Some sentences are long. Pause and break one idea into shorter sentences.");
-  if(transitions===0) imp.push("Use linking phrases such as “The main reason is…”, “For example…” and “However…”.");
-  if(w<55) imp.push("Add a specific example or personal experience.");
-  if(!imp.length) imp.push("Your structure is developing well. Focus next on sounding natural rather than using complicated words.");
+  let good="You kept talking and developed an idea rather than stopping after one sentence. That gives us useful material to improve.";
+  let imp=[biggest];
+  if(!low.includes("for example") && !low.includes("for instance")) imp.push("Add one concrete example. It makes your answer easier to follow and remember.");
+  if(w>80) imp.push("Aim to say the same amount of meaning in fewer, cleaner sentences.");
 
   document.getElementById("good").innerHTML='<div class="good"><b>What you did well</b><br>'+good+'</div>';
-  document.getElementById("improve").innerHTML='<div class="improve"><b>Next improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
+  document.getElementById("improve").innerHTML='<div class="improve"><b>Biggest improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
 
   const better=makeNatural(t);
-  const structure=buildStructure(t);
-
+  const structureText=buildStructure(t);
   document.getElementById("pattern").textContent=
-    (w<45 ? "short answer" : (w>120 ? "detailed answer" : "good speaking length"))
-    +" · "+(fillerCount ? "watch filler words" : "few filler words")
-    +" · "+(transitions ? "uses transitions" : "add transitions")
-    +" · "+(avg>25 ? "long sentences" : "comfortable sentence length");
-
+    (andThen>=2 ? "run-on / stream-of-thought" : "developing ideas")+
+    " · "+(fillers ? "filler words present" : "few filler words")+
+    " · "+(connectorCount ? "some linking" : "needs stronger linking")+
+    " · "+(repeatedWords.length ? "some repetition" : "limited repetition");
   document.getElementById("better").textContent=better;
-  document.getElementById("structure").textContent=structure;
+  document.getElementById("structure").textContent=structureText;
   document.getElementById("results").classList.remove("hidden");
-
-  lastAnalysis={
-    date:new Date().toLocaleDateString(),
-    topic:topics[current][0],
-    score:overall,
-    text:t,
-    better:better
-  };
-
   document.getElementById("status").textContent="Analysis complete — scroll down to see your coaching.";
 
+  lastAnalysis={date:new Date().toLocaleDateString(),topic:topics[current][0],score:overall,text:t,better:better};
  }catch(err){
   console.error(err);
   document.getElementById("results").classList.remove("hidden");
@@ -335,14 +385,114 @@ function buildStructure(t){
 }
 
 function useImproved(){if(lastAnalysis){document.getElementById("speech").value=lastAnalysis.better;document.getElementById("status").textContent="Now try saying the improved version in your own words."}}
+let editingIndex=-1;
+
+function getHistory(){
+ return JSON.parse(localStorage.getItem("articulateHistory")||"[]");
+}
 function saveSession(){
- if(!lastAnalysis)return;
- const h=JSON.parse(localStorage.getItem("articulateHistory")||"[]");h.unshift(lastAnalysis);localStorage.setItem("articulateHistory",JSON.stringify(h.slice(0,30)));renderProgress();alert("Session saved.");}
+ if(!lastAnalysis){
+  alert("Analyse your answer first, then save the session.");
+  return;
+ }
+ const h=getHistory();
+ // Avoid accidental duplicate saves of the exact same answer.
+ const duplicate=h.some(x=>x.topic===lastAnalysis.topic && x.text===lastAnalysis.text);
+ if(!duplicate){
+  h.unshift(lastAnalysis);
+  localStorage.setItem("articulateHistory",JSON.stringify(h.slice(0,100)));
+ }
+ renderProgress();
+ viewRecords();
+ alert(duplicate ? "This session is already saved." : "Session saved.");
+}
 function renderProgress(){
- const h=JSON.parse(localStorage.getItem("articulateHistory")||"[]");
- if(!h.length)return;
- const avg=Math.round(h.reduce((a,x)=>a+x.score,0)/h.length), best=Math.max(...h.map(x=>x.score));
- document.getElementById("progress").innerHTML="<b>"+h.length+"</b> sessions saved · Average <b>"+avg+"</b> · Best <b>"+best+"</b><br><br>"+h.slice(0,3).map(x=>'<div class="historyItem"><b>'+x.score+'/100</b> · '+x.topic+'<br><span class="small">'+x.date+'</span></div>').join("");
+ const h=getHistory();
+ const el=document.getElementById("progress");
+ if(!h.length){
+  el.textContent="No sessions saved yet.";
+  return;
+ }
+ const avg=Math.round(h.reduce((a,x)=>a+Number(x.score||0),0)/h.length);
+ const best=Math.max.apply(null,h.map(x=>Number(x.score||0)));
+ el.innerHTML="<b>"+h.length+"</b> sessions saved · Average <b>"+avg+"</b> · Best <b>"+best+"</b>";
+}
+function viewRecords(){
+ const list=document.getElementById("recordsList");
+ const h=getHistory();
+ list.classList.remove("hidden");
+ if(!h.length){
+  list.innerHTML='<div class="emptyRecords">No saved records yet. Complete a session and tap <b>Save session</b>.</div>';
+  return;
+ }
+ list.innerHTML=h.map(function(x,i){
+  const answer=(x.text||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const topic=(x.topic||"Untitled").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return '<div class="recordCard">'+
+   '<div class="recordTop"><div><div class="recordTitle">'+topic+'</div><div class="recordMeta">'+(x.date||"")+' · '+(x.score||0)+'/100</div></div></div>'+
+   '<div class="small" style="margin-top:8px">'+answer.substring(0,180)+(answer.length>180?"…":"")+'</div>'+
+   '<div class="recordActions">'+
+   '<button class="btn secondary" type="button" onclick="editRecord('+i+')">✏️ Edit</button>'+
+   '<button class="btn ghost" type="button" onclick="loadRecord('+i+')">Open</button>'+
+   '<button class="btn ghost" type="button" onclick="deleteRecord('+i+')">Delete</button>'+
+   '</div></div>';
+ }).join("");
+}
+function editRecord(index){
+ const h=getHistory();
+ if(!h[index]) return;
+ editingIndex=index;
+ document.getElementById("editTopic").value=h[index].topic||"";
+ document.getElementById("editText").value=h[index].text||"";
+ document.getElementById("editBetter").value=h[index].better||"";
+ document.getElementById("editModal").classList.add("show");
+}
+function closeEdit(){
+ editingIndex=-1;
+ document.getElementById("editModal").classList.remove("show");
+}
+function closeEditOnBackdrop(e){
+ if(e.target.id==="editModal") closeEdit();
+}
+function saveEditedRecord(){
+ if(editingIndex<0)return;
+ const h=getHistory();
+ if(!h[editingIndex])return;
+ h[editingIndex].topic=document.getElementById("editTopic").value.trim()||"Untitled";
+ h[editingIndex].text=document.getElementById("editText").value.trim();
+ h[editingIndex].better=document.getElementById("editBetter").value.trim();
+ localStorage.setItem("articulateHistory",JSON.stringify(h));
+ closeEdit();
+ renderProgress();
+ viewRecords();
+}
+function loadRecord(index){
+ const h=getHistory();
+ const x=h[index];
+ if(!x)return;
+ document.getElementById("topic").textContent=x.topic||"Saved session";
+ document.getElementById("speech").value=x.text||"";
+ lastAnalysis=x;
+ window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"});
+}
+function deleteRecord(index){
+ const h=getHistory();
+ if(!h[index])return;
+ if(confirm("Delete this saved session?")){
+  h.splice(index,1);
+  localStorage.setItem("articulateHistory",JSON.stringify(h));
+  renderProgress();
+  viewRecords();
+ }
+}
+function clearRecords(){
+ const h=getHistory();
+ if(!h.length){alert("There are no saved records.");return;}
+ if(confirm("Delete all saved Articulate Coach records?")){
+  localStorage.removeItem("articulateHistory");
+  renderProgress();
+  document.getElementById("recordsList").classList.add("hidden");
+ }
 }
 renderTopic();renderProgress();
 </script>
