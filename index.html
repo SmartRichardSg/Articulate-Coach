@@ -222,6 +222,8 @@ function stopSpeech(){
     ? "Speech captured. Tap Analyse when ready."
     : "Ready for coaching.";
 }
+function words(t){ return t.trim() ? t.trim().split(/\s+/).length : 0; }
+function sentences(t){ return (t.match(/[.!?]+/g)||[]).length; }
 function coach(){
  try{
   const t=document.getElementById("speech").value.trim();
