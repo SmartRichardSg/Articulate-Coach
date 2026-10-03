@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Articulate Coach</title>
+<style>
+:root{--teal:#0f766e;--teal2:#14b8a6;--bg:#f3faf9;--card:#fff;--text:#18322f;--muted:#6b7f7c;--line:#d8e8e5}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif}
+.app{max-width:620px;margin:auto;padding:18px 16px 36px}
+header{display:flex;align-items:center;gap:12px;margin:4px 0 18px}.icon{width:50px;height:50px;border-radius:15px;background:var(--teal);display:grid;place-items:center;box-shadow:0 6px 18px #0f766e33}.icon svg{width:30px;height:30px}
+h1{font-size:25px;margin:0}.sub{font-size:13px;color:var(--muted);margin-top:3px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 4px 16px #164e4933}
+.label{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--teal);margin-bottom:8px}
+.topic{font-size:22px;line-height:1.3;font-weight:700}
+.prompt{color:var(--muted);font-size:14px;line-height:1.45;margin-top:9px}
+.row{display:flex;gap:9px;flex-wrap:wrap}.btn{border:0;border-radius:14px;padding:13px 15px;font-size:15px;font-weight:700;cursor:pointer}.primary{background:var(--teal);color:#fff}.secondary{background:#e6f4f1;color:var(--teal)}.ghost{background:#f1f5f4;color:var(--text)}
+textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:15px;padding:13px;font:16px/1.5 inherit;resize:vertical;outline:none}textarea:focus{border-color:var(--teal2);box-shadow:0 0 0 3px #14b8a622}
+.timer{font-size:28px;font-weight:800;text-align:center;margin:8px}.status{text-align:center;color:var(--muted);font-size:13px;min-height:20px}
+.scoregrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.score{background:#f4f9f8;border-radius:14px;padding:11px;text-align:center}.score b{display:block;font-size:21px}.score span{font-size:11px;color:var(--muted)}
+.good{background:#eef9f4;border-left:4px solid #16a34a;padding:12px;border-radius:10px;margin-top:10px}.improve{background:#fff8e8;border-left:4px solid #d97706;padding:12px;border-radius:10px;margin-top:10px}
+.improved{font-size:16px;line-height:1.55;background:#f7fbfa;border:1px solid var(--line);padding:14px;border-radius:14px;margin-top:10px}
+.small{font-size:12px;color:var(--muted);line-height:1.45}.hidden{display:none}.historyItem{padding:12px 0;border-bottom:1px solid var(--line)}.historyItem:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<div class="icon" aria-label="sun journal pencil">
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="28" cy="28" r="13" fill="#FDE68A"/><path d="M28 7v6M28 43v6M7 28h6M43 28h6M13.2 13.2l4.2 4.2M38.6 38.6l4.2 4.2M42.8 13.2l-4.2 4.2M17.4 38.6l-4.2 4.2" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+<path d="M37 45l13-13 6 6-13 13-8 2 2-8Z" fill="#14B8A6" stroke="#fff" stroke-width="2"/><path d="m48 34 6 6" stroke="#fff" stroke-width="2"/>
+</svg>
+</div><div><h1>Articulate Coach</h1><div class="sub">Think clearly • Speak naturally • Express yourself better</div></div>
+</header>
+
+<section class="card">
+<div class="label">Today's topic</div>
+<div id="topic" class="topic"></div>
+<div id="prompt" class="prompt"></div>
+<div class="row" style="margin-top:14px"><button class="btn secondary" onclick="newTopic()">New topic</button><button class="btn ghost" onclick="copyTopic()">Copy</button></div>
+</section>
+
+<section class="card">
+<div class="label">1 · Think</div>
+<div class="prompt">Before speaking, organise your answer in three parts: <b>main point → reason → example</b>.</div>
+<textarea id="thoughts" placeholder="Jot down a few keywords..."></textarea>
+</section>
+
+<section class="card">
+<div class="label">2 · Speak</div>
+<div class="timer" id="timer">01:30</div>
+<div class="status" id="status">Tap Start and speak naturally.</div>
+<div class="row" style="justify-content:center;margin-top:10px"><button id="startBtn" class="btn primary" onclick="startSpeech()">🎙 Start speaking</button><button class="btn ghost" onclick="stopSpeech()">Stop</button></div>
+<textarea id="speech" placeholder="Your speech will appear here when speech recognition is available. You can also type or paste your answer."></textarea>
+<div class="small">On iPhone, speech recognition support depends on the browser. If it is unavailable, simply type your answer here.</div>
+</section>
+
+<section class="card">
+<div class="label">3 · Coach me</div>
+<button class="btn primary" style="width:100%" onclick="coach()">Analyse my answer</button>
+<div id="results" class="hidden" style="margin-top:15px">
+<div class="scoregrid">
+<div class="score"><b id="clarity">—</b><span>Clarity</span></div>
+<div class="score"><b id="flow">—</b><span>Flow</span></div>
+<div class="score"><b id="vocab">—</b><span>Vocabulary</span></div>
+<div class="score"><b id="overall">—</b><span>Overall</span></div>
+</div>
+<div id="good"></div><div id="improve"></div>
+<div class="label" style="margin-top:18px">Your speaking pattern</div>
+<div id="pattern" class="improved"></div>
+<div class="label" style="margin-top:18px">Say it more clearly</div>
+<div id="better" class="improved"></div>
+<div class="label" style="margin-top:18px">A stronger structure</div>
+<div id="structure" class="improved"></div>
+<div class="row" style="margin-top:12px"><button class="btn secondary" onclick="useImproved()">Use improved version</button><button class="btn ghost" onclick="saveSession()">Save session</button></div>
+</div>
+</section>
+
+<section class="card">
+<div class="label">Your progress</div>
+<div id="progress" class="prompt">No sessions saved yet.</div>
+</section>
+</div>
+
+<script>
+const topics=[
+["What makes a good day?","Give your main idea, explain why, and give one example from your life."],
+["Is it better to spend money on experiences or possessions?","Choose your view and support it with two reasons."],
+["What is something you learned later in life that you wish you had learned earlier?","Explain the lesson and how it changed you."],
+["What makes someone a good friend?","Describe the qualities that matter most and give an example."],
+["Does technology make life better or more complicated?","Give a balanced view before explaining your own position."],
+["What does success mean to you?","Define success in your own words and explain why."],
+["What is one habit that can improve a person's life?","Explain the habit, its benefit, and how someone could start."],
+["Should people spend more time reading?","Give your view, a reason, and an example."],
+["What makes a conversation interesting?","Think about questions, listening, stories, and ideas."],
+["If you could give your younger self one piece of advice, what would it be?","Explain why you chose that advice."]
+];
+let current=0, recognition=null, timerId=null, seconds=90, lastAnalysis=null;
+
+function newTopic(){current=Math.floor(Math.random()*topics.length);renderTopic()}
+function renderTopic(){document.getElementById("topic").textContent=topics[current][0];document.getElementById("prompt").textContent=topics[current][1]}
+function copyTopic(){navigator.clipboard?.writeText(topics[current][0])}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
+function resetTimer(){clearInterval(timerId);seconds=90;document.getElementById("timer").textContent=fmt(seconds)}
+function startSpeech(){
+ resetTimer(); document.getElementById("status").textContent="Listening… speak naturally.";
+ if("webkitSpeechRecognition" in window || "SpeechRecognition" in window){
+   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; recognition=new SR();
+   recognition.lang="en-SG"; recognition.continuous=true; recognition.interimResults=true;
+   recognition.onresult=e=>{let out="";for(let i=0;i<e.results.length;i++)out+=e.results[i][0].transcript+" ";document.getElementById("speech").value=out.trim()};
+   recognition.onerror=e=>document.getElementById("status").textContent="Speech recognition stopped. You can type your answer.";
+   recognition.onend=()=>document.getElementById("status").textContent="Speech captured. Tap Analyse when ready.";
+   try{recognition.start()}catch(e){}
+ }else document.getElementById("status").textContent="Speech recognition is not available here. Type your answer below.";
+ timerId=setInterval(()=>{seconds--;document.getElementById("timer").textContent=fmt(Math.max(seconds,0));if(seconds<=0)stopSpeech()},1000);
+}
+function stopSpeech(){clearInterval(timerId);if(recognition){try{recognition.stop()}catch(e){} }document.getElementById("status").textContent="Ready for coaching."}
+function words(t){return t.trim()?t.trim().split(/\s+/).length:0}
+function sentences(t){return (t.match(/[.!?]+/g)||[]).length}
+function coach(){
+ const t=document.getElementById("speech").value.trim();
+ if(!t){alert("Please speak or type an answer first.");return}
+ const w=words(t), s=sentences(t), low=t.toLowerCase();
+ const fillers=["um","uh","you know","like","actually","basically","sort of","kind of","i mean","you see"];
+ let fillerCount=0; fillers.forEach(f=>{fillerCount+=(low.match(new RegExp("\\b"+f.replaceAll(" ","\\s+")+"\\b","g"))||[]).length});
+ const longWords=(t.match(/\b[a-zA-Z]{10,}\b/g)||[]).length;
+ const avg=s?Math.round(w/s):w;
+ const transitionWords=["because","however","therefore","for example","for instance","first","second","finally","although","but","so"];
+ let transitions=transitionWords.filter(x=>low.includes(x)).length;
+ let clarity=Math.max(45,Math.min(98,74-(fillerCount*4)+(s>=2?8:0)+(w>=45?5:0)+(transitions?5:0)));
+ let flow=Math.max(45,Math.min(98,68+(s>=3?10:0)+(avg>=8&&avg<=24?9:0)+(transitions>=2?7:0)-fillerCount*3));
+ let vocab=Math.max(45,Math.min(98,66+(longWords>=2?7:0)+(w>=70?8:0)));
+ let overall=Math.round((clarity+flow+vocab)/3);
+
+ document.getElementById("clarity").textContent=clarity;
+ document.getElementById("flow").textContent=flow;
+ document.getElementById("vocab").textContent=vocab;
+ document.getElementById("overall").textContent=overall;
+
+ let good = s>=3 && transitions>=1
+   ? "You are giving your answer some structure, and your ideas are easier to follow."
+   : w>=45 ? "You have enough material to develop a clear answer."
+   : "You have a useful starting point. Developing the idea will make you sound more confident.";
+
+ let imp=[];
+ if(fillerCount) imp.push("Cut filler words: you used about "+fillerCount+" (“"+fillers.find(f=>low.includes(f))+"” is one example).");
+ if(s<3) imp.push("Give your answer a beginning, middle and end: main point → reason → example.");
+ if(avg>25) imp.push("Some sentences are long. Pause and break one idea into shorter sentences.");
+ if(transitions===0) imp.push("Use linking phrases such as “The main reason is…”, “For example…” and “However…”.");
+ if(w<55) imp.push("Add a specific example or personal experience.");
+ if(!imp.length) imp.push("Your structure is developing well. Focus next on sounding natural rather than trying to use complicated words.");
+
+ document.getElementById("good").innerHTML='<div class="good"><b>What you did well</b><br>'+good+'</div>';
+ document.getElementById("improve").innerHTML='<div class="improve"><b>Next improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
+
+ const better=makeNatural(t);
+ const structure=buildStructure(t);
+ document.getElementById("better").textContent=better;
+ document.getElementById("structure").textContent=structure;
+
+ let pattern=[];
+ if(w<45) pattern.push("short answer");
+ else if(w>120) pattern.push("detailed answer");
+ else pattern.push("good speaking length");
+ pattern.push(fillerCount ? "watch filler words" : "few filler words");
+ pattern.push(transitions ? "uses transitions" : "add transitions");
+ pattern.push(avg>25 ? "long sentences" : "comfortable sentence length");
+ document.getElementById("pattern").textContent=pattern.join(" · ");
+
+ document.getElementById("results").classList.remove("hidden");
+ lastAnalysis={date:new Date().toLocaleDateString(),topic:topics[current][0],score:overall,text:t,better:better};
+}
+
+function cleanSpeech(t){
+ return t.replace(/\b(um|uh|you know|actually|basically|sort of|kind of|i mean|you see)\b/gi,"")
+ .replace(/\s+/g," ").replace(/\s+([,.!?])/g,"$1").trim();
+}
+function makeNatural(t){
+ let x=cleanSpeech(t);
+ const parts=x.split(/(?<=[.!?])\s+/).filter(Boolean);
+ if(parts.length>=3){
+   return parts.slice(0,4).join(" ");
+ }
+ return x;
+}
+function buildStructure(t){
+ const x=cleanSpeech(t);
+ const parts=x.split(/(?<=[.!?])\s+/).filter(Boolean);
+ if(parts.length>=3){
+   return "My main point is: "+parts[0]+"  The reason is: "+parts[1]+"  For example: "+parts[2];
+ }
+ return "My main point is: "+x+"  The reason is…  For example…";
+}
+
+function useImproved(){if(lastAnalysis){document.getElementById("speech").value=lastAnalysis.better;document.getElementById("status").textContent="Now try saying the improved version in your own words."}}
+function saveSession(){
+ if(!lastAnalysis)return;
+ const h=JSON.parse(localStorage.getItem("articulateHistory")||"[]");h.unshift(lastAnalysis);localStorage.setItem("articulateHistory",JSON.stringify(h.slice(0,30)));renderProgress();alert("Session saved.");}
+function renderProgress(){
+ const h=JSON.parse(localStorage.getItem("articulateHistory")||"[]");
+ if(!h.length)return;
+ const avg=Math.round(h.reduce((a,x)=>a+x.score,0)/h.length), best=Math.max(...h.map(x=>x.score));
+ document.getElementById("progress").innerHTML="<b>"+h.length+"</b> sessions saved · Average <b>"+avg+"</b> · Best <b>"+best+"</b><br><br>"+h.slice(0,3).map(x=>'<div class="historyItem"><b>'+x.score+'/100</b> · '+x.topic+'<br><span class="small">'+x.date+'</span></div>').join("");
+}
+renderTopic();renderProgress();
+</script>
+</body>
+</html>
