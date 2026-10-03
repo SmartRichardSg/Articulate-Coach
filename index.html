@@ -54,7 +54,7 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 <div class="status" id="status">Tap Start and speak naturally.</div>
 <div class="row" style="justify-content:center;margin-top:10px"><button id="startBtn" class="btn primary" onclick="startSpeech()">🎙 Start speaking</button><button class="btn ghost" onclick="stopSpeech()">Stop</button></div>
 <textarea id="speech" placeholder="Your speech will appear here when speech recognition is available. You can also type or paste your answer."></textarea>
-<div class="small">On iPhone, speech recognition support depends on the browser. If it is unavailable, simply type your answer here.</div>
+<div class="small">For iPhone: use Safari and allow microphone access if asked. If speech recognition still does not start, tap the microphone <b>on the iPhone keyboard</b> while the text box is selected. Your dictated words will still be analysed by the coach.</div>
 </section>
 
 <section class="card">
@@ -105,20 +105,92 @@ function copyTopic(){navigator.clipboard?.writeText(topics[current][0])}
 function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
 function resetTimer(){clearInterval(timerId);seconds=90;document.getElementById("timer").textContent=fmt(seconds)}
 function startSpeech(){
- resetTimer(); document.getElementById("status").textContent="Listening… speak naturally.";
- if("webkitSpeechRecognition" in window || "SpeechRecognition" in window){
-   const SR=window.SpeechRecognition||window.webkitSpeechRecognition; recognition=new SR();
-   recognition.lang="en-SG"; recognition.continuous=true; recognition.interimResults=true;
-   recognition.onresult=e=>{let out="";for(let i=0;i<e.results.length;i++)out+=e.results[i][0].transcript+" ";document.getElementById("speech").value=out.trim()};
-   recognition.onerror=e=>document.getElementById("status").textContent="Speech recognition stopped. You can type your answer.";
-   recognition.onend=()=>document.getElementById("status").textContent="Speech captured. Tap Analyse when ready.";
-   try{recognition.start()}catch(e){}
- }else document.getElementById("status").textContent="Speech recognition is not available here. Type your answer below.";
- timerId=setInterval(()=>{seconds--;document.getElementById("timer").textContent=fmt(Math.max(seconds,0));if(seconds<=0)stopSpeech()},1000);
+  resetTimer();
+  const status=document.getElementById("status");
+  const box=document.getElementById("speech");
+  const startBtn=document.getElementById("startBtn");
+  const SR=window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if(!SR){
+    status.textContent="Speech recognition is not available in this browser. Tap the text box and use the iPhone microphone on the keyboard.";
+    box.focus();
+    return;
+  }
+
+  try{
+    recognition=new SR();
+    recognition.lang="en-SG";
+    recognition.continuous=false;
+    recognition.interimResults=true;
+    recognition.maxAlternatives=1;
+
+    let finalText=box.value.trim();
+    if(finalText) finalText+=" ";
+
+    recognition.onstart=()=>{
+      status.textContent="🎙 Listening… speak now.";
+      startBtn.textContent="🎙 Listening…";
+      startBtn.disabled=true;
+    };
+
+    recognition.onresult=(event)=>{
+      let interim="";
+      for(let i=event.resultIndex;i<event.results.length;i++){
+        const transcript=event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalText+=transcript+" ";
+        else interim+=transcript;
+      }
+      box.value=(finalText+interim).trim();
+    };
+
+    recognition.onerror=(event)=>{
+      clearInterval(timerId);
+      startBtn.disabled=false;
+      startBtn.textContent="🎙 Start speaking";
+      const messages={
+        "not-allowed":"Microphone permission was blocked. Check iPhone Settings → Safari → Microphone, then try again.",
+        "service-not-allowed":"Safari's speech recognition service is unavailable right now.",
+        "audio-capture":"Safari could not access the microphone.",
+        "network":"Speech recognition needs a network connection.",
+        "no-speech":"No speech was detected. Tap Start and speak clearly.",
+        "language-not-supported":"English (Singapore) is not supported here. Try again with English (US)."
+      };
+      status.textContent=messages[event.error] || ("Speech recognition stopped: "+event.error);
+    };
+
+    recognition.onend=()=>{
+      clearInterval(timerId);
+      startBtn.disabled=false;
+      startBtn.textContent="🎙 Start speaking";
+      status.textContent=box.value.trim()
+        ? "Speech captured. You can continue or tap Analyse."
+        : "No speech captured. Tap Start and try again.";
+    };
+
+    recognition.start();
+
+    timerId=setInterval(()=>{
+      seconds--;
+      document.getElementById("timer").textContent=fmt(Math.max(seconds,0));
+      if(seconds<=0) stopSpeech();
+    },1000);
+  }catch(err){
+    startBtn.disabled=false;
+    startBtn.textContent="🎙 Start speaking";
+    status.textContent="Safari could not start speech recognition. Please try again.";
+  }
 }
-function stopSpeech(){clearInterval(timerId);if(recognition){try{recognition.stop()}catch(e){} }document.getElementById("status").textContent="Ready for coaching."}
-function words(t){return t.trim()?t.trim().split(/\s+/).length:0}
-function sentences(t){return (t.match(/[.!?]+/g)||[]).length}
+function stopSpeech(){
+  clearInterval(timerId);
+  if(recognition){try{recognition.stop()}catch(e){}}
+  const btn=document.getElementById("startBtn");
+  btn.disabled=false;
+  btn.textContent="🎙 Start speaking";
+  document.getElementById("status").textContent=
+    document.getElementById("speech").value.trim()
+    ? "Speech captured. Tap Analyse when ready."
+    : "Ready for coaching.";
+}
 function coach(){
  const t=document.getElementById("speech").value.trim();
  if(!t){alert("Please speak or type an answer first.");return}
