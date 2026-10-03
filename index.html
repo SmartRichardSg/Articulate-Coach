@@ -69,8 +69,33 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 <div class="small">For iPhone: use Safari and allow microphone access if asked. If speech recognition still does not start, tap the microphone <b>on the iPhone keyboard</b> while the text box is selected. Your dictated words will still be analysed by the coach.</div>
 </section>
 
+<section class="card" id="conversationCard">
+<div class="label">3 · Conversation practice</div>
+<div id="convRound" class="label" style="margin-top:4px">Round 1 · Give your view</div>
+<div id="convQuestion" class="topic" style="font-size:20px"></div>
+<div id="convHint" class="prompt"></div>
+
+<div class="timer" id="convTimer">00:45</div>
+<div class="status" id="convStatus">Tap Start to answer.</div>
+<div class="row" style="justify-content:center;margin-top:10px">
+<button id="convStart" class="btn primary" type="button" onclick="startConversation()">🎙 Start answer</button>
+<button class="btn ghost" type="button" onclick="stopConversation()">Stop</button>
+</div>
+<textarea id="convAnswer" placeholder="Your answer will appear here, or type your response."></textarea>
+
+<div class="row" style="margin-top:12px">
+<button id="convNext" class="btn secondary" type="button" onclick="nextConversationRound()" disabled>Continue conversation →</button>
+<button class="btn ghost" type="button" onclick="resetConversation()">Restart</button>
+</div>
+
+<div id="convCoach" class="hidden" style="margin-top:15px">
+<div class="label">Conversation coaching</div>
+<div id="convFeedback" class="improved"></div>
+</div>
+</section>
+
 <section class="card">
-<div class="label">3 · Coach me</div>
+<div class="label">4 · Coach me</div>
 <button id="analyseBtn" type="button" class="btn primary" style="width:100%;min-height:52px" onclick="coach();return false;">Analyse my answer</button>
 <div id="results" class="hidden" style="margin-top:15px">
 <div class="scoregrid">
@@ -416,6 +441,175 @@ function buildStructure(t){
 }
 
 function useImproved(){if(lastAnalysis){document.getElementById("speech").value=lastAnalysis.better;document.getElementById("status").textContent="Now try saying the improved version in your own words."}}
+
+let convRound=1;
+let convTimerId=null;
+let convSeconds=45;
+let convRecognition=null;
+let convActive=false;
+let convFinalText="";
+
+const conversationSets=[
+ {
+  q:"What do you think makes a person successful?",
+  h:"Give your view first. Then give one reason and one example.",
+  f:[
+   "You mentioned success. What is the most important part of success to you?",
+   "Can you give me a real example from your own experience?",
+   "Now explain your view in 30 seconds, using one clear main point."
+  ]
+ },
+ {
+  q:"Do you think technology is making everyday life better?",
+  h:"Take a position, but acknowledge one possible downside.",
+  f:[
+   "What is one example that supports your view?",
+   "What is one disadvantage people should be careful about?",
+   "Now give me your balanced answer in 30 seconds."
+  ]
+ },
+ {
+  q:"What is one lesson you have learned later in life?",
+  h:"State the lesson, explain why it matters, and give an example.",
+  f:[
+   "Why do you think it took you so long to learn this?",
+   "How has that lesson changed something you actually do?",
+   "Now explain the lesson to someone younger in 30 seconds."
+  ]
+ },
+ {
+  q:"What makes a good conversation?",
+  h:"Think about speaking, listening and asking questions.",
+  f:[
+   "Why is listening important?",
+   "Can you describe a conversation you remember as particularly good?",
+   "Now give three practical tips for having a better conversation."
+  ]
+ }
+];
+
+let convSetIndex=0;
+
+function currentConversationSet(){return conversationSets[convSetIndex];}
+function renderConversation(){
+ const set=currentConversationSet();
+ document.getElementById("convRound").textContent="Round "+convRound+" · "+(convRound===1?"Give your view":(convRound===2?"Go deeper":"Be concise"));
+ document.getElementById("convQuestion").textContent=convRound===1?set.q:set.f[convRound-2];
+ document.getElementById("convHint").textContent=convRound===1?set.h:"Answer naturally. Don't try to sound clever — aim to be clear.";
+ document.getElementById("convAnswer").value="";
+ document.getElementById("convNext").disabled=true;
+ document.getElementById("convCoach").classList.add("hidden");
+ resetConversationTimer();
+}
+function resetConversationTimer(){
+ clearInterval(convTimerId);
+ convSeconds=45;
+ document.getElementById("convTimer").textContent=fmt(convSeconds);
+ document.getElementById("convStatus").textContent="Tap Start to answer.";
+}
+function startConversation(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ const box=document.getElementById("convAnswer");
+ if(!SR){
+  box.focus();
+  document.getElementById("convStatus").textContent="Speech recognition is unavailable. Use the iPhone keyboard microphone.";
+  return;
+ }
+ stopConversation();
+ convActive=true;
+ convFinalText=box.value.trim();
+ if(convFinalText)convFinalText+=" ";
+ document.getElementById("convStart").disabled=true;
+ document.getElementById("convStart").textContent="🎙 Listening…";
+ document.getElementById("convStatus").textContent="🎙 Listening… speak naturally.";
+ function listen(){
+  if(!convActive||convSeconds<=0)return;
+  try{
+   convRecognition=new SR();
+   convRecognition.lang="en-SG";
+   convRecognition.continuous=true;
+   convRecognition.interimResults=true;
+   convRecognition.onresult=function(e){
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+     const tx=e.results[i][0].transcript;
+     if(e.results[i].isFinal)convFinalText+=tx+" ";
+     else interim+=tx;
+    }
+    box.value=(convFinalText+interim).trim();
+   };
+   convRecognition.onerror=function(e){
+    if(e.error==="not-allowed"){
+     convActive=false;
+     document.getElementById("convStatus").textContent="Microphone permission was blocked.";
+    }
+   };
+   convRecognition.onend=function(){
+    if(convActive&&convSeconds>0)setTimeout(listen,250);
+   };
+   convRecognition.start();
+  }catch(e){
+   if(convActive&&convSeconds>0)setTimeout(listen,400);
+  }
+ }
+ listen();
+ convTimerId=setInterval(function(){
+  convSeconds--;
+  document.getElementById("convTimer").textContent=fmt(Math.max(convSeconds,0));
+  if(convSeconds<=0)stopConversation();
+ },1000);
+}
+function stopConversation(){
+ convActive=false;
+ clearInterval(convTimerId);
+ if(convRecognition){try{convRecognition.stop()}catch(e){}}
+ const box=document.getElementById("convAnswer");
+ document.getElementById("convStart").disabled=false;
+ document.getElementById("convStart").textContent="🎙 Start answer";
+ if(box.value.trim()){
+  document.getElementById("convStatus").textContent="Answer captured.";
+  document.getElementById("convNext").disabled=false;
+  conversationFeedback(box.value.trim());
+ }else{
+  document.getElementById("convStatus").textContent="Ready for your answer.";
+ }
+}
+function conversationFeedback(t){
+ const low=t.toLowerCase();
+ const w=words(t);
+ const s=sentences(t);
+ const fillers=(low.match(/\b(um|uh|you know|like|basically|actually)\b/g)||[]).length;
+ let msg=[];
+ if(w<30)msg.push("Good concise start. Next time, add one reason or example.");
+ else if(w>110)msg.push("You have plenty of material. Try making your main point earlier.");
+ else msg.push("You gave enough material to develop your idea.");
+ if(fillers)msg.push("Watch filler words — a short pause is often stronger.");
+ if(s<=1&&w>40)msg.push("Break the answer into shorter sentences so the listener can follow your thinking.");
+ else if(s>=3)msg.push("Your ideas have some natural separation. Keep using deliberate pauses.");
+ document.getElementById("convFeedback").textContent=msg.join(" ");
+ document.getElementById("convCoach").classList.remove("hidden");
+}
+function nextConversationRound(){
+ const answer=document.getElementById("convAnswer").value.trim();
+ if(!answer){alert("Give your answer first.");return;}
+ if(convRound<3){
+  convRound++;
+  renderConversation();
+ }else{
+  document.getElementById("convStatus").textContent="Conversation complete. Try the final answer once more in your own words.";
+  document.getElementById("convNext").disabled=true;
+  document.getElementById("convNext").textContent="Conversation complete";
+ }
+}
+function resetConversation(){
+ stopConversation();
+ convRound=1;
+ convSetIndex=(convSetIndex+1)%conversationSets.length;
+ document.getElementById("convNext").textContent="Continue conversation →";
+ renderConversation();
+}
+renderConversation();
+
 let editingIndex=-1;
 
 function getHistory(){
