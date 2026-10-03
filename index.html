@@ -59,7 +59,7 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 
 <section class="card">
 <div class="label">3 · Coach me</div>
-<button class="btn primary" style="width:100%" onclick="coach()">Analyse my answer</button>
+<button id="analyseBtn" type="button" class="btn primary" style="width:100%;min-height:52px" onclick="coach();return false;">Analyse my answer</button>
 <div id="results" class="hidden" style="margin-top:15px">
 <div class="scoregrid">
 <div class="score"><b id="clarity">—</b><span>Clarity</span></div>
@@ -192,57 +192,92 @@ function stopSpeech(){
     : "Ready for coaching.";
 }
 function coach(){
- const t=document.getElementById("speech").value.trim();
- if(!t){alert("Please speak or type an answer first.");return}
- const w=words(t), s=sentences(t), low=t.toLowerCase();
- const fillers=["um","uh","you know","like","actually","basically","sort of","kind of","i mean","you see"];
- let fillerCount=0; fillers.forEach(f=>{fillerCount+=(low.match(new RegExp("\\b"+f.replaceAll(" ","\\s+")+"\\b","g"))||[]).length});
- const longWords=(t.match(/\b[a-zA-Z]{10,}\b/g)||[]).length;
- const avg=s?Math.round(w/s):w;
- const transitionWords=["because","however","therefore","for example","for instance","first","second","finally","although","but","so"];
- let transitions=transitionWords.filter(x=>low.includes(x)).length;
- let clarity=Math.max(45,Math.min(98,74-(fillerCount*4)+(s>=2?8:0)+(w>=45?5:0)+(transitions?5:0)));
- let flow=Math.max(45,Math.min(98,68+(s>=3?10:0)+(avg>=8&&avg<=24?9:0)+(transitions>=2?7:0)-fillerCount*3));
- let vocab=Math.max(45,Math.min(98,66+(longWords>=2?7:0)+(w>=70?8:0)));
- let overall=Math.round((clarity+flow+vocab)/3);
+ try{
+  const t=document.getElementById("speech").value.trim();
+  if(!t){
+    alert("Please speak or type an answer first.");
+    return;
+  }
 
- document.getElementById("clarity").textContent=clarity;
- document.getElementById("flow").textContent=flow;
- document.getElementById("vocab").textContent=vocab;
- document.getElementById("overall").textContent=overall;
+  const w=words(t);
+  const s=sentences(t);
+  const low=t.toLowerCase();
 
- let good = s>=3 && transitions>=1
-   ? "You are giving your answer some structure, and your ideas are easier to follow."
-   : w>=45 ? "You have enough material to develop a clear answer."
-   : "You have a useful starting point. Developing the idea will make you sound more confident.";
+  const fillers=["um","uh","you know","like","actually","basically","sort of","kind of","i mean","you see"];
+  let fillerCount=0;
+  for(let i=0;i<fillers.length;i++){
+    const f=fillers[i].replace(/[-\/\\^$*+?.()|[\]{}]/g,"\\$&").replace(/ /g,"\\s+");
+    const m=low.match(new RegExp("\\b"+f+"\\b","g"));
+    if(m) fillerCount+=m.length;
+  }
 
- let imp=[];
- if(fillerCount) imp.push("Cut filler words: you used about "+fillerCount+" (“"+fillers.find(f=>low.includes(f))+"” is one example).");
- if(s<3) imp.push("Give your answer a beginning, middle and end: main point → reason → example.");
- if(avg>25) imp.push("Some sentences are long. Pause and break one idea into shorter sentences.");
- if(transitions===0) imp.push("Use linking phrases such as “The main reason is…”, “For example…” and “However…”.");
- if(w<55) imp.push("Add a specific example or personal experience.");
- if(!imp.length) imp.push("Your structure is developing well. Focus next on sounding natural rather than trying to use complicated words.");
+  const longWords=(t.match(/\b[a-zA-Z]{10,}\b/g)||[]).length;
+  const avg=s ? Math.round(w/s) : w;
+  const transitionWords=["because","however","therefore","for example","for instance","first","second","finally","although","but","so"];
+  let transitions=0;
+  for(let i=0;i<transitionWords.length;i++){
+    if(low.indexOf(transitionWords[i])!==-1) transitions++;
+  }
 
- document.getElementById("good").innerHTML='<div class="good"><b>What you did well</b><br>'+good+'</div>';
- document.getElementById("improve").innerHTML='<div class="improve"><b>Next improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
+  let clarity=Math.max(45,Math.min(98,74-(fillerCount*4)+(s>=2?8:0)+(w>=45?5:0)+(transitions?5:0)));
+  let flow=Math.max(45,Math.min(98,68+(s>=3?10:0)+(avg>=8&&avg<=24?9:0)+(transitions>=2?7:0)-(fillerCount*3)));
+  let vocab=Math.max(45,Math.min(98,66+(longWords>=2?7:0)+(w>=70?8:0)));
+  let overall=Math.round((clarity+flow+vocab)/3);
 
- const better=makeNatural(t);
- const structure=buildStructure(t);
- document.getElementById("better").textContent=better;
- document.getElementById("structure").textContent=structure;
+  document.getElementById("clarity").textContent=clarity;
+  document.getElementById("flow").textContent=flow;
+  document.getElementById("vocab").textContent=vocab;
+  document.getElementById("overall").textContent=overall;
 
- let pattern=[];
- if(w<45) pattern.push("short answer");
- else if(w>120) pattern.push("detailed answer");
- else pattern.push("good speaking length");
- pattern.push(fillerCount ? "watch filler words" : "few filler words");
- pattern.push(transitions ? "uses transitions" : "add transitions");
- pattern.push(avg>25 ? "long sentences" : "comfortable sentence length");
- document.getElementById("pattern").textContent=pattern.join(" · ");
+  let good;
+  if(s>=3 && transitions>=1){
+    good="You are giving your answer some structure, and your ideas are easier to follow.";
+  }else if(w>=45){
+    good="You have enough material to develop a clear answer.";
+  }else{
+    good="You have a useful starting point. Developing the idea will make you sound more confident.";
+  }
 
- document.getElementById("results").classList.remove("hidden");
- lastAnalysis={date:new Date().toLocaleDateString(),topic:topics[current][0],score:overall,text:t,better:better};
+  let imp=[];
+  if(fillerCount) imp.push("Cut filler words. You used about "+fillerCount+" filler word(s).");
+  if(s<3) imp.push("Give your answer a beginning, middle and end: main point → reason → example.");
+  if(avg>25) imp.push("Some sentences are long. Pause and break one idea into shorter sentences.");
+  if(transitions===0) imp.push("Use linking phrases such as “The main reason is…”, “For example…” and “However…”.");
+  if(w<55) imp.push("Add a specific example or personal experience.");
+  if(!imp.length) imp.push("Your structure is developing well. Focus next on sounding natural rather than using complicated words.");
+
+  document.getElementById("good").innerHTML='<div class="good"><b>What you did well</b><br>'+good+'</div>';
+  document.getElementById("improve").innerHTML='<div class="improve"><b>Next improvement</b><br>'+imp.slice(0,2).join("<br>")+'</div>';
+
+  const better=makeNatural(t);
+  const structure=buildStructure(t);
+
+  document.getElementById("pattern").textContent=
+    (w<45 ? "short answer" : (w>120 ? "detailed answer" : "good speaking length"))
+    +" · "+(fillerCount ? "watch filler words" : "few filler words")
+    +" · "+(transitions ? "uses transitions" : "add transitions")
+    +" · "+(avg>25 ? "long sentences" : "comfortable sentence length");
+
+  document.getElementById("better").textContent=better;
+  document.getElementById("structure").textContent=structure;
+  document.getElementById("results").classList.remove("hidden");
+
+  lastAnalysis={
+    date:new Date().toLocaleDateString(),
+    topic:topics[current][0],
+    score:overall,
+    text:t,
+    better:better
+  };
+
+  document.getElementById("status").textContent="Analysis complete — scroll down to see your coaching.";
+
+ }catch(err){
+  console.error(err);
+  document.getElementById("results").classList.remove("hidden");
+  document.getElementById("good").innerHTML='<div class="improve"><b>Coach error</b><br>The answer was captured, but the analysis encountered a browser error. Please try again.</div>';
+  document.getElementById("status").textContent="Analysis error — please tap Analyse again.";
+ }
 }
 
 function cleanSpeech(t){
