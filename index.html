@@ -450,12 +450,12 @@ function coach(){
       s1>=4?"You have several short thoughts. For now, practise connecting them into one simple message.":
       "Keep your main idea near the beginning so the listener immediately knows what you mean.";
     document.getElementById("coachPlan").textContent="Level 1: Say your main thought. Add one or two simple sentences only if they help explain it. Then stop.";
-    document.getElementById("better").textContent=makeNatural(t);
+    document.getElementById("better").textContent=cleanSpeech(t);
     document.getElementById("structure").textContent="Try this simple pattern: “I think… / I enjoy… / I prefer… / I feel…” Then add one short explanation if needed.";
     document.getElementById("practice").textContent="Try Again with the same topic. Speak for about 20–30 seconds. Your only goal: one clear thought.";
     document.getElementById("pattern").textContent=w1<8?"very short answer":(w1>60?"too much for Level 1":"good Level 1 length");
 
-    lastAnalysis={date:new Date().toLocaleString(),topic:document.getElementById("topic").textContent,score:overall1,text:t,better:makeNatural(t)};
+    lastAnalysis={date:new Date().toLocaleString(),topic:document.getElementById("topic").textContent,score:overall1,text:t,better:cleanSpeech(t)};
     document.getElementById("coach").classList.remove("hidden");
     return;
   }
@@ -590,7 +590,7 @@ function cleanSpeech(t){
 }
 function makeNatural(t){
  let x=cleanSpeech(t);
- const parts=x.split(/(?<=[.!?])\s+/).filter(Boolean);
+ const parts=x.split(/\s+(?=[A-Z])/).filter(Boolean);
  if(parts.length>=3){
    return parts.slice(0,4).join(" ");
  }
@@ -598,7 +598,7 @@ function makeNatural(t){
 }
 function buildStructure(t){
  const x=cleanSpeech(t);
- const parts=x.split(/(?<=[.!?])\s+/).filter(Boolean);
+ const parts=x.split(/\s+(?=[A-Z])/).filter(Boolean);
  if(parts.length>=3){
    return "My main point is: "+parts[0]+"  The reason is: "+parts[1]+"  For example: "+parts[2];
  }
@@ -656,11 +656,25 @@ const conversationSets=[
 let convSetIndex=0;
 
 function currentConversationSet(){return conversationSets[convSetIndex];}
+function conversationForPractice(){
+ const topic=(practiceSetup.topic||"").trim();
+ const task=(practiceSetup.task||"").trim();
+ const base=topic || currentConversationSet().q;
+ return {
+  q:base,
+  h:task || "Give your view first. Keep it simple and clear.",
+  f:[
+   "Why do you feel that way? Give one simple reason.",
+   "Can you give me one example from your own experience?",
+   "Now say your main point again in about 20–30 seconds."
+  ]
+ };
+}
 function renderConversation(){
- const set=currentConversationSet();
+ const set=conversationForPractice();
  document.getElementById("convRound").textContent="Round "+convRound+" · "+(convRound===1?"Give your view":(convRound===2?"Go deeper":"Be concise"));
  document.getElementById("convQuestion").textContent=convRound===1?set.q:set.f[convRound-2];
- document.getElementById("convHint").textContent=convRound===1?set.h:"Answer naturally. Don't try to sound clever — aim to be clear.";
+ document.getElementById("convHint").textContent=convRound===1?set.h:(practiceSetup.direction||"Answer naturally. Aim to be clear and conversational.");
  document.getElementById("convAnswer").value="";
  document.getElementById("convNext").disabled=true;
  document.getElementById("convCoach").classList.add("hidden");
