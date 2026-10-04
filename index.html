@@ -456,7 +456,8 @@ function coach(){
     document.getElementById("pattern").textContent=w1<8?"very short answer":(w1>60?"too much for Level 1":"good Level 1 length");
 
     lastAnalysis={date:new Date().toLocaleString(),topic:document.getElementById("topic").textContent,score:overall1,text:t,better:cleanSpeech(t)};
-    document.getElementById("coach").classList.remove("hidden");
+    document.getElementById("results").classList.remove("hidden");
+    document.getElementById("status").textContent="Analysis complete — now practise the one improvement above.";
     return;
   }
 
