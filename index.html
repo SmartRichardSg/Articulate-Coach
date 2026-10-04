@@ -11,7 +11,16 @@
 .app{max-width:620px;margin:auto;padding:18px 16px 36px}
 header{display:flex;align-items:center;gap:12px;margin:4px 0 18px}.icon{width:50px;height:50px;border-radius:15px;background:var(--teal);display:grid;place-items:center;box-shadow:0 6px 18px #0f766e33}.icon svg{width:30px;height:30px}
 h1{font-size:25px;margin:0}.sub{font-size:13px;color:var(--muted);margin-top:3px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 4px 16px #164e4933}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 4px 16px
+.setup-grid{display:grid;gap:10px}
+.setup-grid label{font-size:12px;font-weight:700;color:var(--muted)}
+.setup-grid textarea{min-height:72px;margin:4px 0 0;padding:12px;font:inherit;line-height:1.4;border:1px solid var(--line);border-radius:12px;background:#fbfefd;color:var(--text);resize:vertical}
+.level-row{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px}
+.level-btn{flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:8px 12px;font-weight:700;font-size:12px}
+.level-btn.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+.beginner-note{background:#eefaf7;border-radius:14px;padding:12px;font-size:13px;line-height:1.45;color:#24544f}
+.small-btn{font-size:12px;padding:9px 11px}
+ #164e4933}
 .label{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--teal);margin-bottom:8px}
 .topic{font-size:22px;line-height:1.3;font-weight:700}
 .prompt{color:var(--muted);font-size:14px;line-height:1.45;margin-top:9px}
@@ -47,6 +56,37 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 </div><div><h1>Articulate Coach</h1><div class="sub">Think clearly • Speak naturally • Express yourself better</div></div>
 </header>
 
+
+<section class="card">
+<div class="label">Practice setup</div>
+<div class="beginner-note"><b>Start from the ground up.</b> Level 1 is about expressing one clear thought. Do not worry about impressive vocabulary. We will improve one thing at a time.</div>
+<div style="height:10px"></div>
+<div class="label">Your level</div>
+<div class="level-row" id="levelRow">
+<button class="level-btn active" data-level="1" onclick="setLevel(1)">Level 1</button>
+<button class="level-btn" data-level="2" onclick="setLevel(2)">Level 2</button>
+<button class="level-btn" data-level="3" onclick="setLevel(3)">Level 3</button>
+<button class="level-btn" data-level="4" onclick="setLevel(4)">Level 4</button>
+<button class="level-btn" data-level="5" onclick="setLevel(5)">Level 5</button>
+<button class="level-btn" data-level="6" onclick="setLevel(6)">Level 6</button>
+</div>
+<div id="levelGoal" class="prompt" style="margin-top:8px"></div>
+<div class="setup-grid" style="margin-top:12px">
+<label>Today's Topic
+<textarea id="setupTopic"></textarea></label>
+<label>My Task
+<textarea id="setupTask"></textarea></label>
+<label>Conversation Direction
+<textarea id="setupDirection"></textarea></label>
+<label>Coaching Goal
+<textarea id="setupGoal"></textarea></label>
+</div>
+<div class="row" style="margin-top:10px">
+<button class="btn primary small-btn" onclick="usePracticeSetup()">Use This Practice</button>
+<button class="btn ghost small-btn" onclick="loadBeginnerDefaults()">Beginner Defaults</button>
+</div>
+</section>
+
 <section class="card">
 <div class="label">Today's topic</div>
 <div id="topic" class="topic"></div>
@@ -56,13 +96,13 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 
 <section class="card">
 <div class="label">1 · Think</div>
-<div class="prompt">Before speaking, organise your answer in three parts: <b>main point → reason → example</b>.</div>
+<div id="thinkGuide" class="prompt">Before speaking, think of <b>one clear thought</b>. You do not need a reason or example yet.</div>
 <textarea id="thoughts" placeholder="Jot down a few keywords..."></textarea>
 </section>
 
 <section class="card">
 <div class="label">2 · Speak</div>
-<div class="timer" id="timer">01:30</div>
+<div class="timer" id="timer">00:30</div>
 <div class="status" id="status">Tap Start and speak naturally.</div>
 <div class="row" style="justify-content:center;margin-top:10px"><button id="startBtn" class="btn primary" onclick="startSpeech()">🎙 Start speaking</button><button class="btn ghost" onclick="stopSpeech()">Stop</button></div>
 <textarea id="speech" placeholder="Your speech will appear here when speech recognition is available. You can also type or paste your answer."></textarea>
@@ -151,6 +191,78 @@ textarea{width:100%;min-height:145px;border:1px solid var(--line);border-radius:
 </div>
 
 <script>
+
+const beginnerDefaults={
+  topic:"What is one thing you enjoy doing?",
+  task:"Talk about one thing you enjoy doing. Say what it is and why you enjoy it. Keep it simple.",
+  direction:"After I answer, ask me one simple natural follow-up question. Help me answer one thought at a time. Do not make the conversation difficult yet.",
+  goal:"Help me express one clear thought confidently. Keep my natural personality and everyday language. Correct only one important thing at a time. Do not make me sound formal or like I am reading a speech."
+};
+const levelGoals={
+  1:"Level 1 · One clear thought — say one idea clearly and confidently in about 20–30 seconds.",
+  2:"Level 2 · Add a reason — practise: “I think… because…”",
+  3:"Level 3 · Add an example — practise: “I think… because… For example…”",
+  4:"Level 4 · Tell a short story — beginning → what happened → what I felt or learned.",
+  5:"Level 5 · Give an opinion — opinion → reason → example → short conclusion.",
+  6:"Level 6 · Conversation — answer naturally, handle follow-up questions and clarify your ideas."
+};
+let practiceLevel=1;
+let practiceSetup={...beginnerDefaults};
+
+function savePracticeSetup(){
+  try{localStorage.setItem("articulatePracticeSetup",JSON.stringify(practiceSetup));}catch(e){}
+}
+function loadPracticeSetup(){
+  try{
+    const x=JSON.parse(localStorage.getItem("articulatePracticeSetup")||"null");
+    if(x && x.topic && x.task){practiceSetup={...beginnerDefaults,...x};}
+  }catch(e){}
+}
+function syncSetupFields(){
+  document.getElementById("setupTopic").value=practiceSetup.topic;
+  document.getElementById("setupTask").value=practiceSetup.task;
+  document.getElementById("setupDirection").value=practiceSetup.direction;
+  document.getElementById("setupGoal").value=practiceSetup.goal;
+  document.getElementById("levelGoal").textContent=levelGoals[practiceLevel];
+}
+function setLevel(level){
+  practiceLevel=Number(level);
+  document.querySelectorAll(".level-btn").forEach(b=>b.classList.toggle("active",Number(b.dataset.level)===practiceLevel));
+  document.getElementById("levelGoal").textContent=levelGoals[practiceLevel];
+  const guides={
+    1:"Before speaking, think of <b>one clear thought</b>. You do not need a reason or example yet.",
+    2:"Think: <b>main point → reason</b>. Keep it short.",
+    3:"Think: <b>main point → reason → example</b>.",
+    4:"Think: <b>beginning → what happened → what I felt/learned</b>.",
+    5:"Think: <b>opinion → reason → example → conclusion</b>.",
+    6:"Think about your answer, then speak naturally and respond to the conversation."
+  };
+  document.getElementById("thinkGuide").innerHTML=guides[practiceLevel];
+}
+function usePracticeSetup(){
+  practiceSetup={
+    topic:document.getElementById("setupTopic").value.trim()||beginnerDefaults.topic,
+    task:document.getElementById("setupTask").value.trim()||beginnerDefaults.task,
+    direction:document.getElementById("setupDirection").value.trim()||beginnerDefaults.direction,
+    goal:document.getElementById("setupGoal").value.trim()||beginnerDefaults.goal
+  };
+  savePracticeSetup();
+  topics[current]=[practiceSetup.topic,practiceSetup.task];
+  renderTopic();
+  renderConversation();
+  document.getElementById("status").textContent="Practice loaded. Take a moment to think, then speak naturally.";
+}
+function loadBeginnerDefaults(){
+  practiceLevel=1;
+  practiceSetup={...beginnerDefaults};
+  syncSetupFields();
+  setLevel(1);
+  usePracticeSetup();
+}
+function getPracticeLimit(){
+  return practiceLevel===1?30:90;
+}
+
 const topics=[
 ["What makes a good day?","Give your main idea, explain why, and give one example from your life."],
 ["Is it better to spend money on experiences or possessions?","Choose your view and support it with two reasons."],
@@ -169,7 +281,7 @@ function newTopic(){current=Math.floor(Math.random()*topics.length);renderTopic(
 function renderTopic(){document.getElementById("topic").textContent=topics[current][0];document.getElementById("prompt").textContent=topics[current][1]}
 function copyTopic(){navigator.clipboard?.writeText(topics[current][0])}
 function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}
-function resetTimer(){clearInterval(timerId);seconds=90;document.getElementById("timer").textContent=fmt(seconds)}
+function resetTimer(){clearInterval(timerId);seconds=getPracticeLimit();document.getElementById("timer").textContent=fmt(seconds)}
 function startSpeech(){
   resetTimer();
   const status=document.getElementById("status");
@@ -294,6 +406,59 @@ function coach(){
  try{
   const t=document.getElementById("speech").value.trim();
   if(!t){alert("Please speak or type an answer first.");return;}
+
+  if(practiceLevel===1){
+    const w1=words(t), s1=sentences(t), low1=t.toLowerCase();
+    const fillers1=["um","uh","you know","like","actually","basically","sort of","kind of","i mean"];
+    let filler1=0;
+    fillers1.forEach(f=>{
+      const m=low1.match(new RegExp("\\b"+f.replace(/ /g,"\\s+")+"\\b","g"));
+      if(m) filler1+=m.length;
+    });
+    let clarity1=82, flow1=80, language1=78;
+    if(w1<8){clarity1-=15;flow1-=10;}
+    if(w1>60){clarity1-=8;flow1-=10;}
+    if(s1>=4){clarity1-=5;flow1-=4;}
+    if(filler1>=2){flow1-=7;clarity1-=4;}
+    if((low1.match(/\band\b/g)||[]).length>=6){flow1-=6;}
+    clarity1=Math.max(40,Math.min(95,clarity1));
+    flow1=Math.max(40,Math.min(95,flow1));
+    language1=Math.max(45,Math.min(95,language1));
+    const overall1=Math.round((clarity1+flow1+language1)/3);
+
+    document.getElementById("clarity").textContent=clarity1;
+    document.getElementById("flow").textContent=flow1;
+    document.getElementById("vocab").textContent=language1;
+    document.getElementById("overall").textContent=overall1;
+
+    const clearEnough=w1>=8 && w1<=60 && s1<=3;
+    document.getElementById("good").innerHTML='<div class="good"><b>What you did well</b><br>'+
+      (w1>=8?"Good — you expressed a real idea. That is exactly what Level 1 is for.":"You made a start. The important thing is to keep speaking and build confidence.")+
+      '</div>';
+
+    let oneThing="Try to say the same idea in two or three short sentences.";
+    if(w1<8) oneThing="Give yourself a little more time. Say what you think in one or two simple sentences.";
+    else if(w1>60) oneThing="You have more to say, but Level 1 is about one thought. Stop after your main idea and keep it short.";
+    else if(filler1>=2) oneThing="Take a small pause instead of filling the silence with “um”, “like”, or similar words.";
+    else if(s1>=4) oneThing="Shorten the answer. Aim for two or three simple sentences.";
+    else if(clearEnough) oneThing="Try saying the same idea again, but make the first sentence your main point.";
+
+    document.getElementById("improve").innerHTML='<div class="improve"><b>One thing to improve</b><br>'+oneThing+'</div>';
+    document.getElementById("mainIdea").textContent="Your job at Level 1 is not to sound impressive. It is to make one thought easy for another person to understand.";
+    document.getElementById("clarityProblem").textContent=
+      w1>60?"You added more ideas than we need at this level. Keeping one thought will make you easier to follow.":
+      s1>=4?"You have several short thoughts. For now, practise connecting them into one simple message.":
+      "Keep your main idea near the beginning so the listener immediately knows what you mean.";
+    document.getElementById("coachPlan").textContent="Level 1: Say your main thought. Add one or two simple sentences only if they help explain it. Then stop.";
+    document.getElementById("better").textContent=makeNatural(t);
+    document.getElementById("structure").textContent="Try this simple pattern: “I think… / I enjoy… / I prefer… / I feel…” Then add one short explanation if needed.";
+    document.getElementById("practice").textContent="Try Again with the same topic. Speak for about 20–30 seconds. Your only goal: one clear thought.";
+    document.getElementById("pattern").textContent=w1<8?"very short answer":(w1>60?"too much for Level 1":"good Level 1 length");
+
+    lastAnalysis={date:new Date().toLocaleString(),topic:document.getElementById("topic").textContent,score:overall1,text:t,better:makeNatural(t)};
+    document.getElementById("coach").classList.remove("hidden");
+    return;
+  }
 
   const w=words(t), s=sentences(t), low=t.toLowerCase();
   const fillers=["um","uh","you know","like","actually","basically","sort of","kind of","i mean","you see"];
